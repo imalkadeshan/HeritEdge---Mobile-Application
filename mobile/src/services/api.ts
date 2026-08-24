@@ -29,7 +29,7 @@ export async function removeToken(): Promise<void> {
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) headers.Authorization = "Bearer " + token;
   return headers;
 }
 
