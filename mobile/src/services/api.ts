@@ -29,7 +29,7 @@ export async function removeToken(): Promise<void> {
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = Bearer ${token};
+  if (token) headers.Authorization = "Bearer " + token;
   return headers;
 }
 
@@ -40,7 +40,7 @@ export async function apiRegister(data: {
   email: string;
   password: string;
 }): Promise<ApiResult> {
-  const response = await fetch(${API_BASE_URL}/auth/register, {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -61,7 +61,7 @@ export async function apiLogin(data: {
   email: string;
   password: string;
 }): Promise<ApiResult> {
-  const response = await fetch(${API_BASE_URL}/auth/login, {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -83,7 +83,7 @@ export async function apiLogin(data: {
 // ---- Get current user ----
 
 export async function apiGetMe(): Promise<ApiResult> {
-  const response = await fetch(${API_BASE_URL}/users/me, {
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
     method: "GET",
     headers: await authHeaders(),
   });
@@ -107,7 +107,7 @@ export async function apiUpdateMe(data: {
   profileImage?: string;
   culturalInterests?: string[];
 }): Promise<ApiResult> {
-  const response = await fetch(${API_BASE_URL}/users/me, {
+  const response = await fetch(`${API_BASE_URL}/users/me`, {
     method: "PUT",
     headers: await authHeaders(),
     body: JSON.stringify(data),
@@ -128,7 +128,7 @@ export async function apiUpdateProfile(
   userId: string,
   data: { role?: string; name?: string; bio?: string; language?: string; community?: string; culturalInterests?: string[] }
 ): Promise<ApiResult> {
-  const response = await fetch(${API_BASE_URL}/users/${userId}, {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
