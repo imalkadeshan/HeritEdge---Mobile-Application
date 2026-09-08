@@ -1,27 +1,114 @@
-import { View, StyleSheet, ScrollView, TextInput } from "react-native";
+import { useState, useCallback, useRef } from "react";
+import { View, StyleSheet, ScrollView, TextInput, RefreshControl } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import { AppText, AppCard } from "../../../src/components";
 import { colors } from "../../../src/theme/colors";
 import { spacing } from "../../../src/theme/spacing";
 import { borderRadius } from "../../../src/theme/layout";
 import { useUser } from "../../../src/context/UserContext";
+import { apiGetAllContent } from "../../../src/services/api";
 
 const CATEGORIES = [
-  { label: "Stories", icon: "📖", selected: true },
-  { label: "Songs", icon: "🎵", selected: false },
-  { label: "Recipes", icon: "🍽️", selected: false },
-  { label: "Traditions", icon: "🏛️", selected: false },
-  { label: "Proverbs", icon: "💬", selected: false },
-  { label: "Local Words", icon: "📝", selected: false },
+  { label: "All", icon: "📚", value: undefined },
+  { label: "Stories", icon: "📖", value: "Story" },
+  { label: "Songs", icon: "🎵", value: "Song" },
+  { label: "Recipes", icon: "🍽️", value: "Recipe" },
+  { label: "Traditions", icon: "🏛️", value: "Tradition" },
+  { label: "Proverbs", icon: "💬", value: "Proverb" },
+  { label: "Local Words", icon: "📝", value: "Dialect Word" },
 ];
+
+const CATEGORY_ICONS: Record<string, string> = {
+  Story: "📖",
+  Proverb: "💬",
+  Recipe: "🍽️",
+  Tradition: "🏛️",
+  Song: "🎵",
+  "Dialect Word": "📝",
+};
+
+interface ContentItem {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  imageUrl: string | null;
+  createdAt: string;
+  creator: {
+    id: string;
+    name: string;
+  };
+}
 
 export default function YouthHomeScreen() {
   const { currentUser } = useUser();
+  const router = useRouter();
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchContent = async (search?: string, category?: string, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else if (search !== undefined || category !== undefined) setSearching(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const result = await apiGetAllContent(search, category);
+      if (result.success && Array.isArray(result.data)) {
+        setContent(result.data as ContentItem[]);
+      } else {
+        setError(result.message || "Failed to load content");
+      }
+    } catch {
+      setError("Could not connect to the server");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setSearching(false);
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      fetchContent(text.trim() || undefined, selectedCategory);
+    }, 500);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    fetchContent(undefined, selectedCategory);
+  };
+
+  const handleCategorySelect = (value: string | undefined) => {
+    setSelectedCategory(value);
+    fetchContent(searchQuery.trim() || undefined, value);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchContent();
+    }, [])
+  );
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchContent(searchQuery.trim() || undefined, selectedCategory, true)}
+            tintColor={colors.primary.main}
+          />
+        }
       >
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -48,8 +135,22 @@ export default function YouthHomeScreen() {
               style={styles.searchInput}
               placeholder="Search cultural knowledge..."
               placeholderTextColor={colors.text.tertiary}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              onSubmitEditing={() => {
+                if (searchQuery.trim()) fetchContent(searchQuery.trim());
+              }}
+              returnKeyType="search"
             />
-            <AppText variant="body">⚙️</AppText>
+            {searchQuery.length > 0 && (
+              <AppText
+                variant="body"
+                color={colors.text.tertiary}
+                onPress={handleClearSearch}
+              >
+                ✕
+              </AppText>
+            )}
           </View>
         </View>
 
@@ -59,11 +160,12 @@ export default function YouthHomeScreen() {
             {CATEGORIES.map((cat) => (
               <View
                 key={cat.label}
-                style={[styles.chip, cat.selected && styles.chipSelected]}
+                style={[styles.chip, selectedCategory === cat.value && styles.chipSelected]}
               >
                 <AppText
                   variant="caption"
-                  color={cat.selected ? colors.primary.contrast : colors.text.primary}
+                  color={selectedCategory === cat.value ? colors.primary.contrast : colors.text.primary}
+                  onPress={() => handleCategorySelect(cat.value)}
                 >
                   {cat.icon} {cat.label}
                 </AppText>
@@ -80,61 +182,87 @@ export default function YouthHomeScreen() {
             </AppText>
           </View>
 
-          <AppCard style={styles.featuredCard}>
-            <View style={styles.imagePlaceholder}>
-              <AppText variant="title">🏺</AppText>
-            </View>
-            <View style={styles.featuredContent}>
-              <View style={styles.tag}>
-                <AppText variant="caption" color={colors.primary.main}>
-                  TRADITIONS
-                </AppText>
-              </View>
-              <AppText variant="subheading">The Art of Terracotta Crafting</AppText>
-              <AppText variant="bodySmall" color={colors.text.secondary}>
-                Discover the deep history of Sinhalese heritage pottery and clay
-                modelling that passed down generations.
-              </AppText>
-              <View style={styles.sharedBy}>
-                <View style={styles.sharedAvatar}>
-                  <AppText variant="caption" color={colors.primary.contrast}>
-                    SP
-                  </AppText>
-                </View>
-                <AppText variant="caption" color={colors.text.secondary}>
-                  Shared by Sunil Perera
-                </AppText>
-              </View>
-            </View>
-          </AppCard>
+          {loading && (
+            <AppText variant="body" color={colors.text.secondary}>
+              Loading content...
+            </AppText>
+          )}
 
-          <AppCard style={styles.featuredCard}>
-            <View style={styles.imagePlaceholder}>
-              <AppText variant="title">🍽️</AppText>
-            </View>
-            <View style={styles.featuredContent}>
-              <View style={styles.tag}>
-                <AppText variant="caption" color={colors.primary.main}>
-                  RECIPES
-                </AppText>
-              </View>
-              <AppText variant="subheading">Harvest Festival Recipes</AppText>
-              <AppText variant="bodySmall" color={colors.text.secondary}>
-                Authentic, ancestral harvest foods prepared in Northern Bihar
-                during rural seasonal celebrations.
-              </AppText>
-              <View style={styles.sharedBy}>
-                <View style={styles.sharedAvatar}>
-                  <AppText variant="caption" color={colors.primary.contrast}>
-                    DR
+          {error && (
+            <AppText variant="body" color={colors.error.main}>
+              {error}
+            </AppText>
+          )}
+
+          {searching && (
+            <AppText variant="body" color={colors.text.secondary}>
+              Searching...
+            </AppText>
+          )}
+
+          {!loading && !error && !searching && content.length === 0 && searchQuery.trim() && (
+            <AppText variant="body" color={colors.text.secondary}>
+              No results found for "{searchQuery}". Try a different search.
+            </AppText>
+          )}
+
+          {!loading && !error && !searching && content.length === 0 && !searchQuery.trim() && selectedCategory && (
+            <AppText variant="body" color={colors.text.secondary}>
+              No {selectedCategory.toLowerCase()} content available yet.
+            </AppText>
+          )}
+
+          {!loading && !error && !searching && content.length === 0 && !searchQuery.trim() && !selectedCategory && (
+            <AppText variant="body" color={colors.text.secondary}>
+              No cultural content available yet. Check back later!
+            </AppText>
+          )}
+
+          {content.map((item) => (
+            <AppCard
+              key={item._id}
+              style={styles.featuredCard}
+              onPress={() =>
+                router.push({
+                  pathname: "/youth/content-detail",
+                  params: { id: item._id },
+                })
+              }
+            >
+              {item.imageUrl ? (
+                <View style={styles.imagePlaceholder}>
+                  <AppText variant="title">🖼️</AppText>
+                </View>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <AppText variant="title">
+                    {CATEGORY_ICONS[item.category] || "📄"}
                   </AppText>
                 </View>
-                <AppText variant="caption" color={colors.text.secondary}>
-                  Shared by Dadi Rukmani
+              )}
+              <View style={styles.featuredContent}>
+                <View style={styles.tag}>
+                  <AppText variant="caption" color={colors.primary.main}>
+                    {item.category.toUpperCase()}
+                  </AppText>
+                </View>
+                <AppText variant="subheading">{item.title}</AppText>
+                <AppText variant="bodySmall" color={colors.text.secondary} numberOfLines={2}>
+                  {item.content}
                 </AppText>
+                <View style={styles.sharedBy}>
+                  <View style={styles.sharedAvatar}>
+                    <AppText variant="caption" color={colors.primary.contrast}>
+                      {item.creator?.name?.charAt(0).toUpperCase() || "?"}
+                    </AppText>
+                  </View>
+                  <AppText variant="caption" color={colors.text.secondary}>
+                    Shared by {item.creator?.name || "Unknown"}
+                  </AppText>
+                </View>
               </View>
-            </View>
-          </AppCard>
+            </AppCard>
+          ))}
         </View>
 
         <View style={styles.section}>

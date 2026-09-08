@@ -4,6 +4,7 @@ export default function YouthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="content-detail" />
     </Stack>
   );
 }
