@@ -52,7 +52,11 @@ export async function apiRegister(data: {
     return { success: false, message: result.message || "Registration failed" };
   }
 
-  return { success: true, message: result.message, data: result.user };
+  if (result.token) {
+    await storeToken(result.token);
+  }
+
+  return { success: true, message: result.message, data: result.user, token: result.token };
 }
 
 // ---- Login ----
@@ -95,6 +99,132 @@ export async function apiGetMe(): Promise<ApiResult> {
   }
 
   return { success: true, message: "OK", data: result.user };
+}
+
+// ---- Get All Cultural Content (Browse) ----
+
+export async function apiGetAllContent(search?: string, category?: string): Promise<ApiResult> {
+  const params = new URLSearchParams();
+  if (search) params.append("search", search);
+  if (category) params.append("category", category);
+  const qs = params.toString();
+  const url = qs ? `${API_BASE_URL}/content?${qs}` : `${API_BASE_URL}/content`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch content" };
+  }
+
+  return { success: true, message: result.message, data: result.content };
+}
+
+// ---- Get Content By ID ----
+
+export async function apiGetContentById(
+  contentId: string
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/content/${contentId}`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch content" };
+  }
+
+  return { success: true, message: result.message, data: result.content };
+}
+
+// ---- Create Cultural Content ----
+
+export async function apiCreateContent(data: {
+  title: string;
+  content: string;
+  category: string;
+  imageUrl?: string;
+}): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/content`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to create content" };
+  }
+
+  return { success: true, message: result.message, data: result.content };
+}
+
+// ---- Get My Cultural Content ----
+
+export async function apiGetMyContent(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/content/mine`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch content" };
+  }
+
+  return { success: true, message: result.message, data: result.content };
+}
+
+// ---- Update Cultural Content ----
+
+export async function apiUpdateContent(
+  contentId: string,
+  data: {
+    title: string;
+    content: string;
+    category: string;
+    imageUrl?: string;
+  }
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/content/${contentId}`, {
+    method: "PUT",
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to update content" };
+  }
+
+  return { success: true, message: result.message, data: result.content };
+}
+
+// ---- Delete Cultural Content ----
+
+export async function apiDeleteContent(
+  contentId: string
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/content/${contentId}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to delete content" };
+  }
+
+  return { success: true, message: result.message };
 }
 
 // ---- Update profile (authenticated, /me) ----

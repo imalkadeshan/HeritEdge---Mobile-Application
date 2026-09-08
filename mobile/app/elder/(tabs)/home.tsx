@@ -1,12 +1,47 @@
+import { useState, useCallback } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
 import { AppText, AppCard, AppButton } from "../../../src/components";
 import { colors } from "../../../src/theme/colors";
 import { spacing } from "../../../src/theme/spacing";
 import { borderRadius } from "../../../src/theme/layout";
 import { useUser } from "../../../src/context/UserContext";
+import { apiGetMyContent } from "../../../src/services/api";
+
+interface ContentItem {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  imageUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function ElderHomeScreen() {
   const { currentUser } = useUser();
+  const router = useRouter();
+  const [myContent, setMyContent] = useState<ContentItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      async function load() {
+        try {
+          const result = await apiGetMyContent();
+          if (!cancelled && result.success && Array.isArray(result.data)) {
+            setMyContent(result.data as ContentItem[]);
+          }
+        } catch {}
+      }
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const statCount = myContent.length;
 
   return (
     <View style={styles.container}>
@@ -45,7 +80,7 @@ export default function ElderHomeScreen() {
               <AppText variant="label">My Space</AppText>
               <View style={styles.statIconOrange} />
             </View>
-            <AppText variant="heading">12</AppText>
+            <AppText variant="heading">{statCount}</AppText>
             <AppText variant="caption" color={colors.text.secondary}>
               Contributions
             </AppText>
@@ -65,7 +100,7 @@ export default function ElderHomeScreen() {
         <View style={styles.shareSection}>
           <AppButton
             label="+ Share Knowledge"
-            onPress={() => {}}
+            onPress={() => router.push("/elder/create-content")}
             fullWidth
           />
         </View>
@@ -73,43 +108,38 @@ export default function ElderHomeScreen() {
         <View style={styles.section}>
           <AppText variant="subheading">Your Recent Activity</AppText>
 
-          <AppCard style={styles.activityCard}>
-            <View style={styles.activityHeader}>
-              <View style={styles.tag}>
-                <AppText variant="caption" color={colors.primary.main}>
-                  Traditions
-                </AppText>
-              </View>
-              <View style={styles.publishedBadge}>
-                <AppText variant="caption" color={colors.success.main}>
-                  PUBLISHED
-                </AppText>
-              </View>
-            </View>
-            <AppText variant="subheading">The Art of Terracotta</AppText>
-            <View style={styles.activityFooter}>
-              <View style={styles.dot} />
-              <AppText variant="caption" color={colors.text.secondary}>
-                2 youth contributions attached
-              </AppText>
-            </View>
-          </AppCard>
-
-          <AppCard style={styles.activityCard}>
-            <View style={styles.activityHeader}>
-              <View style={styles.tag}>
-                <AppText variant="caption" color={colors.primary.main}>
-                  Recipes
-                </AppText>
-              </View>
-              <View style={styles.draftBadge}>
-                <AppText variant="caption" color={colors.text.tertiary}>
-                  DRAFT
-                </AppText>
-              </View>
-            </View>
-            <AppText variant="subheading">Traditional Monsoon Dishes</AppText>
-          </AppCard>
+          {myContent.length === 0 ? (
+            <AppText variant="body" color={colors.text.secondary}>
+              No content yet. Tap "Share Knowledge" to create your first entry.
+            </AppText>
+          ) : (
+            myContent.map((item) => (
+              <AppCard
+                key={item._id}
+                style={styles.activityCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/elder/edit-content",
+                    params: {
+                      id: item._id,
+                      title: item.title,
+                      content: item.content,
+                      category: item.category,
+                    },
+                  })
+                }
+              >
+                <View style={styles.activityHeader}>
+                  <View style={styles.tag}>
+                    <AppText variant="caption" color={colors.primary.main}>
+                      {item.category}
+                    </AppText>
+                  </View>
+                </View>
+                <AppText variant="subheading">{item.title}</AppText>
+              </AppCard>
+            ))
+          )}
         </View>
 
         <View style={styles.section}>
@@ -232,29 +262,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     borderWidth: 1,
     borderColor: "#FFCDD2",
-  },
-  publishedBadge: {
-    backgroundColor: "#E8F5E9",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: borderRadius.sm,
-  },
-  draftBadge: {
-    backgroundColor: colors.surface.secondary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: borderRadius.sm,
-  },
-  activityFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary.main,
   },
   collabCard: {
     gap: spacing.md,
