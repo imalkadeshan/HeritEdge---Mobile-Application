@@ -1,11 +1,16 @@
+<<<<<<< HEAD
 import { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, TextInput, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
+=======
+import { View, StyleSheet, ScrollView, TextInput } from "react-native";
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
 import { AppText, AppCard } from "../../../src/components";
 import { colors } from "../../../src/theme/colors";
 import { spacing } from "../../../src/theme/spacing";
 import { borderRadius } from "../../../src/theme/layout";
 import { useUser } from "../../../src/context/UserContext";
+<<<<<<< HEAD
 import { apiGetAllContent } from "../../../src/services/api";
 
 const CATEGORIES = [
@@ -96,12 +101,27 @@ export default function YouthHomeScreen() {
       fetchContent();
     }, [])
   );
+=======
+
+const CATEGORIES = [
+  { label: "Stories", icon: "📖", selected: true },
+  { label: "Songs", icon: "🎵", selected: false },
+  { label: "Recipes", icon: "🍽️", selected: false },
+  { label: "Traditions", icon: "🏛️", selected: false },
+  { label: "Proverbs", icon: "💬", selected: false },
+  { label: "Local Words", icon: "📝", selected: false },
+];
+
+export default function YouthHomeScreen() {
+  const { currentUser } = useUser();
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
+<<<<<<< HEAD
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -109,6 +129,8 @@ export default function YouthHomeScreen() {
             tintColor={colors.primary.main}
           />
         }
+=======
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
       >
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -135,6 +157,7 @@ export default function YouthHomeScreen() {
               style={styles.searchInput}
               placeholder="Search cultural knowledge..."
               placeholderTextColor={colors.text.tertiary}
+<<<<<<< HEAD
               value={searchQuery}
               onChangeText={handleSearchChange}
               onSubmitEditing={() => {
@@ -151,6 +174,10 @@ export default function YouthHomeScreen() {
                 ✕
               </AppText>
             )}
+=======
+            />
+            <AppText variant="body">⚙️</AppText>
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
           </View>
         </View>
 
@@ -160,12 +187,20 @@ export default function YouthHomeScreen() {
             {CATEGORIES.map((cat) => (
               <View
                 key={cat.label}
+<<<<<<< HEAD
                 style={[styles.chip, selectedCategory === cat.value && styles.chipSelected]}
               >
                 <AppText
                   variant="caption"
                   color={selectedCategory === cat.value ? colors.primary.contrast : colors.text.primary}
                   onPress={() => handleCategorySelect(cat.value)}
+=======
+                style={[styles.chip, cat.selected && styles.chipSelected]}
+              >
+                <AppText
+                  variant="caption"
+                  color={cat.selected ? colors.primary.contrast : colors.text.primary}
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
                 >
                   {cat.icon} {cat.label}
                 </AppText>
@@ -182,6 +217,7 @@ export default function YouthHomeScreen() {
             </AppText>
           </View>
 
+<<<<<<< HEAD
           {loading && (
             <AppText variant="body" color={colors.text.secondary}>
               Loading content...
@@ -263,6 +299,63 @@ export default function YouthHomeScreen() {
               </View>
             </AppCard>
           ))}
+=======
+          <AppCard style={styles.featuredCard}>
+            <View style={styles.imagePlaceholder}>
+              <AppText variant="title">🏺</AppText>
+            </View>
+            <View style={styles.featuredContent}>
+              <View style={styles.tag}>
+                <AppText variant="caption" color={colors.primary.main}>
+                  TRADITIONS
+                </AppText>
+              </View>
+              <AppText variant="subheading">The Art of Terracotta Crafting</AppText>
+              <AppText variant="bodySmall" color={colors.text.secondary}>
+                Discover the deep history of Sinhalese heritage pottery and clay
+                modelling that passed down generations.
+              </AppText>
+              <View style={styles.sharedBy}>
+                <View style={styles.sharedAvatar}>
+                  <AppText variant="caption" color={colors.primary.contrast}>
+                    SP
+                  </AppText>
+                </View>
+                <AppText variant="caption" color={colors.text.secondary}>
+                  Shared by Sunil Perera
+                </AppText>
+              </View>
+            </View>
+          </AppCard>
+
+          <AppCard style={styles.featuredCard}>
+            <View style={styles.imagePlaceholder}>
+              <AppText variant="title">🍽️</AppText>
+            </View>
+            <View style={styles.featuredContent}>
+              <View style={styles.tag}>
+                <AppText variant="caption" color={colors.primary.main}>
+                  RECIPES
+                </AppText>
+              </View>
+              <AppText variant="subheading">Harvest Festival Recipes</AppText>
+              <AppText variant="bodySmall" color={colors.text.secondary}>
+                Authentic, ancestral harvest foods prepared in Northern Bihar
+                during rural seasonal celebrations.
+              </AppText>
+              <View style={styles.sharedBy}>
+                <View style={styles.sharedAvatar}>
+                  <AppText variant="caption" color={colors.primary.contrast}>
+                    DR
+                  </AppText>
+                </View>
+                <AppText variant="caption" color={colors.text.secondary}>
+                  Shared by Dadi Rukmani
+                </AppText>
+              </View>
+            </View>
+          </AppCard>
+>>>>>>> d2508f9866f395e7db1d9ae66b5d3d8edadb48d5
         </View>
 
         <View style={styles.section}>
