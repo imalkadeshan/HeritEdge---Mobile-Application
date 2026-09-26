@@ -227,6 +227,289 @@ export async function apiDeleteContent(
   return { success: true, message: result.message };
 }
 
+// ---- Discover Elders (HE-40) ----
+
+export async function apiDiscoverElders(
+  interest?: string,
+  language?: string
+): Promise<ApiResult> {
+  const params = new URLSearchParams();
+  if (interest) params.append("interest", interest);
+  if (language) params.append("language", language);
+  const qs = params.toString();
+  const url = qs
+    ? `${API_BASE_URL}/elders?${qs}`
+    : `${API_BASE_URL}/elders`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch elders" };
+  }
+
+  return { success: true, message: result.message, data: result.elders };
+}
+
+// ---- Get Elder by ID ----
+
+export async function apiGetElderById(
+  elderId: string
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/elders/${elderId}`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch elder" };
+  }
+
+  return { success: true, message: result.message, data: result.elder };
+}
+
+// ---- Send Collaboration Request (HE-41) ----
+
+export async function apiSendCollaborationRequest(data: {
+  contentId: string;
+  message: string;
+}): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/collaborations`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to send request" };
+  }
+
+  return { success: true, message: result.message, data: result.request };
+}
+
+// ---- Get Outgoing Requests (HE-41) ----
+
+export async function apiGetOutgoingRequests(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/collaborations/outgoing`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch requests" };
+  }
+
+  return { success: true, message: result.message, data: result.requests };
+}
+
+// ---- Get Incoming Requests (HE-42) ----
+
+export async function apiGetIncomingRequests(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/collaborations/incoming`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch requests" };
+  }
+
+  return { success: true, message: result.message, data: result.requests };
+}
+
+// ---- Get Collaboration Workspace (HE-43) ----
+
+export async function apiGetCollaborationWorkspace(
+  collaborationId: string
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/collaborations/${collaborationId}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch workspace" };
+  }
+
+  return { success: true, message: result.message, data: result.request };
+}
+
+// ---- Decide on Collaboration Request (HE-42) ----
+
+export async function apiDecideOnRequest(
+  requestId: string,
+  decision: "accepted" | "rejected"
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/collaborations/${requestId}/decision`,
+    {
+      method: "PUT",
+      headers: await authHeaders(),
+      body: JSON.stringify({ decision }),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to process decision" };
+  }
+
+  return { success: true, message: result.message, data: result.request };
+}
+
+// ---- Get Contributions by Collaboration (HE-28/HE-37) ----
+
+export async function apiGetContributionsByCollaboration(
+  collaborationRequestId: string
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/contributions/collaboration/${collaborationRequestId}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch contributions" };
+  }
+
+  return { success: true, message: result.message, data: result.contributions };
+}
+
+// ---- Create Contribution (HE-28/HE-37) ----
+
+export async function apiCreateContribution(data: {
+  collaborationRequestId: string;
+  contentId: string;
+  type: "translation" | "explanation" | "transcription" | "context";
+  text: string;
+  language?: string;
+}): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/contributions`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to submit contribution" };
+  }
+
+  return { success: true, message: result.message, data: result.contribution };
+}
+
+// ---- Update Contribution (HE-28/HE-37) ----
+
+export async function apiUpdateContribution(
+  contributionId: string,
+  data: { text: string; language?: string }
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/contributions/${contributionId}`, {
+    method: "PUT",
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to update contribution" };
+  }
+
+  return { success: true, message: result.message, data: result.contribution };
+}
+
+// ---- Review Contribution (HE-38/HE-39) ----
+
+export async function apiReviewContribution(
+  contributionId: string,
+  decision: "approved" | "changes_requested",
+  feedback?: string
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/contributions/${contributionId}/review`,
+    {
+      method: "PUT",
+      headers: await authHeaders(),
+      body: JSON.stringify({ decision, feedback }),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to review contribution" };
+  }
+
+  return { success: true, message: result.message, data: result.contribution };
+}
+
+// ---- Get Contribution by ID (for notification navigation) ----
+
+export async function apiGetContributionById(
+  contributionId: string
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/contributions/${contributionId}`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch contribution" };
+  }
+
+  return { success: true, message: result.message, data: result.contribution };
+}
+
+// ---- Get Approved Contributions by Content (HE-39) ----
+
+export async function apiGetApprovedContributionsByContent(
+  contentId: string
+): Promise<ApiResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/contributions/content/${contentId}/approved`,
+    {
+      method: "GET",
+      headers: await authHeaders(),
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch approved contributions" };
+  }
+
+  return { success: true, message: result.message, data: result.contributions };
+}
+
 // ---- Update profile (authenticated, /me) ----
 
 export async function apiUpdateMe(data: {
@@ -271,4 +554,68 @@ export async function apiUpdateProfile(
   }
 
   return { success: true, message: result.message, data: result.user };
+}
+
+// ---- Notifications (HE-30/HE-32) ----
+
+export async function apiGetNotifications(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/notifications`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch notifications" };
+  }
+
+  return { success: true, message: result.message, data: result.notifications };
+}
+
+export async function apiGetUnreadCount(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+    method: "GET",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to fetch unread count" };
+  }
+
+  return { success: true, message: result.message, data: result.count };
+}
+
+export async function apiMarkNotificationRead(
+  notificationId: string
+): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/notifications/${notificationId}/read`, {
+    method: "PUT",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to mark notification as read" };
+  }
+
+  return { success: true, message: result.message };
+}
+
+export async function apiMarkAllNotificationsRead(): Promise<ApiResult> {
+  const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+    method: "PUT",
+    headers: await authHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    return { success: false, message: result.message || "Failed to mark all as read" };
+  }
+
+  return { success: true, message: result.message };
 }
