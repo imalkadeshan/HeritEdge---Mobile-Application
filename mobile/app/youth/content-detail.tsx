@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Image, Modal } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { AppText, AppHeader, AppButton } from "../../src/components";
+import { AppText, AppHeader, AppButton, AppCard } from "../../src/components";
 import { colors } from "../../src/theme/colors";
 import { spacing } from "../../src/theme/spacing";
 import { borderRadius } from "../../src/theme/layout";
@@ -9,6 +9,7 @@ import { useUser } from "../../src/context/UserContext";
 import {
   apiGetContentById,
   apiDeleteContent,
+  apiGetApprovedContributionsByContent,
 } from "../../src/services/api";
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -34,6 +35,24 @@ interface ContentData {
   };
 }
 
+interface ApprovedContribution {
+  _id: string;
+  type: "translation" | "explanation" | "transcription" | "context";
+  text: string;
+  language: string;
+  status: "approved";
+  feedback: string;
+  submittedBy: { _id: string; name: string };
+  createdAt: string;
+}
+
+const CONTRIBUTION_TYPE_LABELS: Record<string, string> = {
+  translation: "Translation",
+  explanation: "Explanation",
+  transcription: "Transcription",
+  context: "Context",
+};
+
 export default function ContentDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,6 +63,7 @@ export default function ContentDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [approvedContributions, setApprovedContributions] = useState<ApprovedContribution[]>([]);
 
   const isOwner = currentUser?.id && item?.creator?.id === currentUser.id;
 
@@ -54,12 +74,18 @@ export default function ContentDetailScreen() {
       setLoading(true);
       setError(null);
       try {
-        const result = await apiGetContentById(id);
+        const [contentResult, contributionsResult] = await Promise.all([
+          apiGetContentById(id),
+          apiGetApprovedContributionsByContent(id),
+        ]);
         if (!cancelled) {
-          if (result.success && result.data) {
-            setItem(result.data as ContentData);
+          if (contentResult.success && contentResult.data) {
+            setItem(contentResult.data as ContentData);
           } else {
-            setError(result.message || "Content not found");
+            setError(contentResult.message || "Content not found");
+          }
+          if (contributionsResult.success && Array.isArray(contributionsResult.data)) {
+            setApprovedContributions(contributionsResult.data as ApprovedContribution[]);
           }
         }
       } catch {
@@ -172,6 +198,36 @@ export default function ContentDetailScreen() {
           <AppText variant="body" style={styles.contentText}>
             {item.content}
           </AppText>
+
+          {/* Approved Contributions Section */}
+          {approvedContributions.length > 0 && (
+            <View style={styles.contributionsSection}>
+              <View style={styles.contributionsDivider} />
+              <AppText variant="subheading">Community Contributions</AppText>
+              {approvedContributions.map((contrib) => (
+                <AppCard key={contrib._id} style={styles.contributionCard}>
+                  <View style={styles.contributionHeader}>
+                    <View style={styles.contributionTypeBadge}>
+                      <AppText variant="caption" color={colors.primary.contrast}>
+                        {CONTRIBUTION_TYPE_LABELS[contrib.type] || contrib.type}
+                      </AppText>
+                    </View>
+                    {contrib.language ? (
+                      <AppText variant="caption" color={colors.text.tertiary}>
+                        {contrib.language}
+                      </AppText>
+                    ) : null}
+                  </View>
+                  <AppText variant="body" color={colors.text.primary}>
+                    {contrib.text}
+                  </AppText>
+                  <AppText variant="caption" color={colors.text.secondary}>
+                    By {contrib.submittedBy?.name || "Youth"}
+                  </AppText>
+                </AppCard>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -311,6 +367,28 @@ const styles = StyleSheet.create({
   },
   contentText: {
     lineHeight: 24,
+  },
+  contributionsSection: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  contributionsDivider: {
+    height: 1,
+    backgroundColor: colors.surface.border,
+  },
+  contributionCard: {
+    gap: spacing.sm,
+  },
+  contributionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  contributionTypeBadge: {
+    backgroundColor: colors.primary.dark,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: borderRadius.sm,
   },
   footer: {
     paddingHorizontal: spacing.xxl,
