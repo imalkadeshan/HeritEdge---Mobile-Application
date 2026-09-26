@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, ScrollView, TextInput, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, RefreshControl, TouchableOpacity } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { AppText, AppCard } from "../../../src/components";
 import { colors } from "../../../src/theme/colors";
 import { spacing } from "../../../src/theme/spacing";
 import { borderRadius } from "../../../src/theme/layout";
 import { useUser } from "../../../src/context/UserContext";
-import { apiGetAllContent } from "../../../src/services/api";
+import { apiGetAllContent, apiDiscoverElders, apiGetOutgoingRequests, apiGetUnreadCount } from "../../../src/services/api";
 
 const CATEGORIES = [
   { label: "All", icon: "📚", value: undefined },
@@ -40,6 +40,15 @@ interface ContentItem {
   };
 }
 
+interface ElderData {
+  id: string;
+  name: string;
+  bio: string;
+  language: string;
+  community: string;
+  culturalInterests: string[];
+}
+
 export default function YouthHomeScreen() {
   const { currentUser } = useUser();
   const router = useRouter();
@@ -51,6 +60,13 @@ export default function YouthHomeScreen() {
   const [searching, setSearching] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [elders, setElders] = useState<ElderData[]>([]);
+  const [eldersLoading, setEldersLoading] = useState(true);
+  const [interestFilter, setInterestFilter] = useState("");
+  const [languageFilter, setLanguageFilter] = useState("");
+  const [outgoingCount, setOutgoingCount] = useState(0);
+  const [unreadNotiCount, setUnreadNotiCount] = useState(0);
 
   const fetchContent = async (search?: string, category?: string, isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -73,6 +89,37 @@ export default function YouthHomeScreen() {
     }
   };
 
+  const fetchElders = async (interest?: string, language?: string) => {
+    setEldersLoading(true);
+    try {
+      const result = await apiDiscoverElders(interest, language);
+      if (result.success && Array.isArray(result.data)) {
+        setElders(result.data as ElderData[]);
+      }
+    } catch {}
+    finally {
+      setEldersLoading(false);
+    }
+  };
+
+  const fetchOutgoingCount = async () => {
+    try {
+      const result = await apiGetOutgoingRequests();
+      if (result.success && Array.isArray(result.data)) {
+        setOutgoingCount(result.data.length);
+      }
+    } catch {}
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const result = await apiGetUnreadCount();
+      if (result.success && typeof result.data === "number") {
+        setUnreadNotiCount(result.data);
+      }
+    } catch {}
+  };
+
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -91,9 +138,22 @@ export default function YouthHomeScreen() {
     fetchContent(searchQuery.trim() || undefined, value);
   };
 
+  const handleInterestFilter = (text: string) => {
+    setInterestFilter(text);
+    fetchElders(text || undefined, languageFilter || undefined);
+  };
+
+  const handleLanguageFilter = (text: string) => {
+    setLanguageFilter(text);
+    fetchElders(interestFilter || undefined, text || undefined);
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchContent();
+      fetchElders();
+      fetchOutgoingCount();
+      fetchUnreadCount();
     }, [])
   );
 
@@ -120,10 +180,26 @@ export default function YouthHomeScreen() {
                 Explore and preserve your cultural heritage.
               </AppText>
             </View>
-            <View style={styles.avatar}>
-              <AppText variant="caption" color={colors.primary.contrast}>
-                {currentUser?.name?.charAt(0).toUpperCase() || "?"}
-              </AppText>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={styles.bellCircle}
+                onPress={() => router.push("/youth/notifications")}
+                activeOpacity={0.7}
+              >
+                <AppText variant="body">🔔</AppText>
+                {unreadNotiCount > 0 && (
+                  <View style={styles.notiBadge}>
+                    <AppText variant="caption" color={colors.primary.contrast}>
+                      {unreadNotiCount > 99 ? "99+" : unreadNotiCount}
+                    </AppText>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <View style={styles.avatar}>
+                <AppText variant="caption" color={colors.primary.contrast}>
+                  {currentUser?.name?.charAt(0).toUpperCase() || "?"}
+                </AppText>
+              </View>
             </View>
           </View>
         </View>
@@ -268,55 +344,72 @@ export default function YouthHomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <AppText variant="subheading">Knowledge Holders</AppText>
-            <AppText variant="bodySmall" color={colors.primary.main}>
-              Find More
+            <AppText
+              variant="bodySmall"
+              color={colors.primary.main}
+              onPress={() => router.push("/youth/outgoing-requests")}
+            >
+              My Requests{outgoingCount > 0 ? ` (${outgoingCount})` : ""}
             </AppText>
           </View>
 
-          <AppCard style={styles.holderCard}>
-            <View style={styles.holderAvatar}>
-              <AppText variant="caption" color={colors.primary.contrast}>
-                SP
-              </AppText>
-            </View>
-            <View style={styles.holderInfo}>
-              <AppText variant="label">Sunil Perera</AppText>
-              <AppText variant="caption" color={colors.text.secondary}>
-                Folk Songs, Traditional Farming · Sinhala
-              </AppText>
-            </View>
-            <AppText variant="body" color={colors.text.tertiary}>›</AppText>
-          </AppCard>
+          <View style={styles.filterRow}>
+            <TextInput
+              style={styles.filterInput}
+              placeholder="Filter by interest..."
+              placeholderTextColor={colors.text.tertiary}
+              value={interestFilter}
+              onChangeText={handleInterestFilter}
+            />
+            <TextInput
+              style={styles.filterInput}
+              placeholder="Filter by language..."
+              placeholderTextColor={colors.text.tertiary}
+              value={languageFilter}
+              onChangeText={handleLanguageFilter}
+            />
+          </View>
 
-          <AppCard style={styles.holderCard}>
-            <View style={styles.holderAvatar}>
-              <AppText variant="caption" color={colors.primary.contrast}>
-                DR
-              </AppText>
-            </View>
-            <View style={styles.holderInfo}>
-              <AppText variant="label">Dadi Rukmani</AppText>
-              <AppText variant="caption" color={colors.text.secondary}>
-                Oral History, Traditional Recipes · Maithili
-              </AppText>
-            </View>
-            <AppText variant="body" color={colors.text.tertiary}>›</AppText>
-          </AppCard>
+          {eldersLoading && (
+            <AppText variant="body" color={colors.text.secondary}>
+              Loading knowledge holders...
+            </AppText>
+          )}
 
-          <AppCard style={styles.holderCard}>
-            <View style={styles.holderAvatar}>
-              <AppText variant="caption" color={colors.primary.contrast}>
-                AJ
-              </AppText>
-            </View>
-            <View style={styles.holderInfo}>
-              <AppText variant="label">Anand Jha</AppText>
-              <AppText variant="caption" color={colors.text.secondary}>
-                Bhojpuri Proverbs, Local Legends · Bho...
-              </AppText>
-            </View>
-            <AppText variant="body" color={colors.text.tertiary}>›</AppText>
-          </AppCard>
+          {!eldersLoading && elders.length === 0 && (
+            <AppText variant="body" color={colors.text.secondary}>
+              No knowledge holders found matching your filters.
+            </AppText>
+          )}
+
+          {!eldersLoading && elders.map((elder) => (
+            <AppCard
+              key={elder.id}
+              style={styles.holderCard}
+              onPress={() =>
+                router.push({
+                  pathname: "/youth/elder-profile",
+                  params: { id: elder.id },
+                })
+              }
+            >
+              <View style={styles.holderAvatar}>
+                <AppText variant="caption" color={colors.primary.contrast}>
+                  {elder.name?.charAt(0).toUpperCase() || "?"}
+                </AppText>
+              </View>
+              <View style={styles.holderInfo}>
+                <AppText variant="label">{elder.name}</AppText>
+                <AppText variant="caption" color={colors.text.secondary}>
+                  {[
+                    elder.culturalInterests?.slice(0, 2).join(", "),
+                    elder.language,
+                  ].filter(Boolean).join(" · ") || "Knowledge Holder"}
+                </AppText>
+              </View>
+              <AppText variant="body" color={colors.text.tertiary}>›</AppText>
+            </AppCard>
+          ))}
         </View>
       </ScrollView>
     </View>
@@ -343,6 +436,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  bellCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface.primary,
+    borderWidth: 1,
+    borderColor: colors.surface.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notiBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: colors.primary.main,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xxs,
   },
   avatar: {
     width: 40,
@@ -451,5 +571,20 @@ const styles = StyleSheet.create({
   holderInfo: {
     flex: 1,
     gap: spacing.xxs,
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  filterInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: colors.surface.border,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface.primary,
+    fontSize: 13,
+    color: colors.text.primary,
   },
 });
