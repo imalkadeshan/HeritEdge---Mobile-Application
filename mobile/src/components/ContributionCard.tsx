@@ -7,6 +7,9 @@ import { AppInput } from "./AppInput";
 import { colors } from "../theme/colors";
 import { spacing } from "../theme/spacing";
 import { borderRadius } from "../theme/layout";
+import { useAppSettings } from "../context/AppSettingsContext";
+import { TranslationKey } from "../i18n/translations";
+import { translateBuiltin } from "../i18n/format";
 
 export type ContributionType = "translation" | "explanation" | "transcription" | "context";
 export type ContributionStatus = "pending_review" | "changes_requested" | "approved";
@@ -22,51 +25,46 @@ export interface ContributionData {
   createdAt: string;
 }
 
-const TYPE_LABELS: Record<ContributionType, { label: string; description: string }> = {
-  translation: {
-    label: "Translation",
-    description: "Translating content into another language",
-  },
-  explanation: {
-    label: "Explanation",
-    description: "Providing meaning or interpretation of content",
-  },
-  transcription: {
-    label: "Transcription",
-    description: "Converting spoken language into written form",
-  },
-  context: {
-    label: "Context",
-    description: "Adding cultural or historical background information",
-  },
+/**
+ * Type labels are the shared `contribType.*` keys (resolved through
+ * translateBuiltin so the stored English `type` value is never rewritten);
+ * only the descriptions live here.
+ */
+const TYPE_DESC_KEYS: Record<ContributionType, TranslationKey> = {
+  translation: "collab.typeDesc.translation",
+  explanation: "collab.typeDesc.explanation",
+  transcription: "collab.typeDesc.transcription",
+  context: "collab.typeDesc.context",
 };
 
 const STATUS_STYLES: Record<
   ContributionStatus,
-  { bg: string; text: string; label: string }
+  { bg: string; text: string; labelKey: TranslationKey }
 > = {
   pending_review: {
     bg: "#FFF8E1",
     text: "#F9A825",
-    label: "Pending Review",
+    labelKey: "collab.status.pending_review",
   },
   changes_requested: {
     bg: "#FFF3E0",
     text: "#E65100",
-    label: "Changes Requested",
+    labelKey: "collab.status.changes_requested",
   },
   approved: {
     bg: "#E8F5E9",
     text: "#2E7D32",
-    label: "Approved",
+    labelKey: "collab.status.approved",
   },
 };
 
-function getAuthorName(submittedBy: string | { _id: string; name: string }): string {
+function getAuthorName(
+  submittedBy: string | { _id: string; name: string }
+): string | null {
   if (typeof submittedBy === "object" && submittedBy !== null && "name" in submittedBy) {
     return submittedBy.name;
   }
-  return "Youth";
+  return null;
 }
 
 interface ContributionCardProps {
@@ -88,7 +86,9 @@ export function ContributionCard({
   reviewing = false,
   showReviewActions = true,
 }: ContributionCardProps) {
-  const typeInfo = TYPE_LABELS[contribution.type];
+  const { t, language } = useAppSettings();
+  const typeLabel = translateBuiltin(language, "contribType", contribution.type);
+  const typeDescKey = TYPE_DESC_KEYS[contribution.type];
   const statusStyle = STATUS_STYLES[contribution.status];
   const isEditable =
     role === "youth" &&
@@ -98,15 +98,15 @@ export function ContributionCard({
     showReviewActions && role === "elder" && contribution.status === "pending_review";
 
   const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackInvalid, setFeedbackInvalid] = useState(false);
 
   const handleRequestChanges = () => {
     const trimmed = feedbackText.trim();
     if (!trimmed) {
-      setFeedbackError("Feedback is required when requesting changes");
+      setFeedbackInvalid(true);
       return;
     }
-    setFeedbackError("");
+    setFeedbackInvalid(false);
     onRequestChanges?.(contribution._id, trimmed);
   };
 
@@ -120,25 +120,27 @@ export function ContributionCard({
       <View style={styles.header}>
         <View style={styles.typeBadge}>
           <AppText variant="caption" color={colors.primary.contrast}>
-            {typeInfo.label}
+            {typeLabel}
           </AppText>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
           <AppText variant="caption" color={statusStyle.text}>
-            {statusStyle.label}
+            {t(statusStyle.labelKey)}
           </AppText>
         </View>
       </View>
 
       {/* Type Description */}
       <AppText variant="caption" color={colors.text.tertiary}>
-        {typeInfo.description}
+        {t(typeDescKey)}
       </AppText>
 
       {/* Author (elder view only) */}
       {role === "elder" && (
         <AppText variant="caption" color={colors.text.secondary}>
-          Submitted by {getAuthorName(contribution.submittedBy)}
+          {t("collab.submittedBy", {
+            name: getAuthorName(contribution.submittedBy) ?? t("profile.roleYouth"),
+          })}
         </AppText>
       )}
 
@@ -146,7 +148,7 @@ export function ContributionCard({
       {contribution.language ? (
         <View style={styles.languageRow}>
           <AppText variant="caption" color={colors.text.secondary}>
-            Language: {contribution.language}
+            {t("collab.language", { language: contribution.language })}
           </AppText>
         </View>
       ) : null}
@@ -160,7 +162,7 @@ export function ContributionCard({
       {contribution.status === "changes_requested" && contribution.feedback ? (
         <View style={styles.feedbackBlock}>
           <AppText variant="label" color={colors.warning.dark}>
-            Elder Feedback
+            {t("collab.elderFeedback")}
           </AppText>
           <AppText variant="body" color={colors.text.secondary} style={styles.feedbackText}>
             {contribution.feedback}
@@ -172,22 +174,22 @@ export function ContributionCard({
       {isReviewable && (
         <View style={styles.reviewSection}>
           <AppInput
-            label="Feedback for Youth (required for changes)"
+            label={t("collab.feedbackLabel")}
             value={feedbackText}
             onChangeText={(text: string) => {
               setFeedbackText(text);
-              setFeedbackError("");
+              setFeedbackInvalid(false);
             }}
-            placeholder="Explain what changes are needed..."
+            placeholder={t("collab.feedbackPlaceholder")}
             multiline
             numberOfLines={3}
             style={styles.feedbackInput}
-            error={feedbackError || undefined}
+            error={feedbackInvalid ? t("collab.feedbackRequired") : undefined}
           />
           <View style={styles.reviewButtons}>
             <View style={styles.reviewBtn}>
               <AppButton
-                label="Approve"
+                label={t("collab.approve")}
                 variant="primary"
                 size="md"
                 fullWidth
@@ -198,7 +200,7 @@ export function ContributionCard({
             </View>
             <View style={styles.reviewBtn}>
               <AppButton
-                label="Request Changes"
+                label={t("collab.requestChanges")}
                 variant="outline"
                 size="md"
                 fullWidth
@@ -219,7 +221,9 @@ export function ContributionCard({
             color={colors.primary.main}
             onPress={() => onEdit(contribution)}
           >
-            {contribution.status === "changes_requested" ? "Revise & Resubmit" : "Edit"}
+            {contribution.status === "changes_requested"
+              ? t("collab.reviseResubmit")
+              : t("common.edit")}
           </AppText>
         </View>
       ) : null}
@@ -235,14 +239,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    // Same defect class as the workspace card: two flex children that cannot
+    // shrink, so a long Sinhala status label plus a long type label could push
+    // the second badge past the card edge. Wrapping lets the badges drop to a
+    // second line instead of clipping.
+    flexWrap: "wrap",
+    gap: spacing.xs,
   },
   typeBadge: {
+    minWidth: 0,
+    flexShrink: 1,
+    maxWidth: "100%",
     backgroundColor: colors.primary.dark,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: borderRadius.sm,
   },
   statusBadge: {
+    minWidth: 0,
+    flexShrink: 1,
+    maxWidth: "100%",
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: borderRadius.sm,
