@@ -1,18 +1,16 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export type ContentCategory =
-  | "Story"
-  | "Proverb"
-  | "Recipe"
-  | "Tradition"
-  | "Song"
-  | "Dialect Word";
-
 export interface ICulturalContent {
   title: string;
   content: string;
-  category: ContentCategory;
+  // Immutable key of a ContentCategory document (e.g. "Story"). The display
+  // label lives on the category and may change without touching this value.
+  category: string;
   imageUrl: string | null;
+  // Server-relative path of the attached recording (e.g.
+  // "/uploads/audio/ab12.m4a"), or null. Only the ownership-checked audio
+  // endpoint may write it (HE-26).
+  audioUrl: string | null;
   createdBy: mongoose.Types.ObjectId;
 }
 
@@ -35,22 +33,19 @@ const culturalContentSchema = new Schema<ICulturalContentDocument>(
       trim: true,
     },
     category: {
+      // Stored value is the immutable ContentCategory key. Whether that key
+      // is currently active is checked in content.service against the
+      // categories collection, so no hard-coded enum is kept here.
       type: String,
       required: [true, "Category is required"],
-      enum: {
-        values: [
-          "Story",
-          "Proverb",
-          "Recipe",
-          "Tradition",
-          "Song",
-          "Dialect Word",
-        ],
-        message:
-          "Category must be one of: Story, Proverb, Recipe, Tradition, Song, Dialect Word",
-      },
+      trim: true,
+      maxlength: [60, "Category must be at most 60 characters"],
     },
     imageUrl: {
+      type: String,
+      default: null,
+    },
+    audioUrl: {
       type: String,
       default: null,
     },
